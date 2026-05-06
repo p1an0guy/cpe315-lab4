@@ -15,7 +15,23 @@ public class lab4 {
     static ArrayList<Instruction> instructionArray = new ArrayList<>();
     static int[] registers = new int[32]; // N.B. remember to always set $0 and $zero to 0!!
     static int[] dataMem = new int[8192];
+
     static int PC = 0;
+    static int cycles = 0;
+    static int instructionsExecuted = 0;
+
+    static Instruction if_id = null;
+    static Instruction id_exe = null;
+    static Instruction exe_mem = null;
+    static Instruction mem_wb = null;
+
+    // while (input != q)
+    //      currInst = instructionArray.get(PC)
+    //      mem_wb = exe_mem
+    //      ...
+    //      if_id = currInst
+    //      execute(currInst)
+    //      PC++
 
     public static void main(String[] args) {
         if (args.length < 1 || args.length > 2) {
@@ -318,6 +334,7 @@ public class lab4 {
                 while (PC < instructionArray.size()) {
                     executeInstruction();
                 }
+                // TODO: display timing summary: CPI, cycles, instructions (see example for format)
                 break;
             case 'm': // m n1 n2 display dataMem from n1 to n2
                 String regex = "[,\\.\\s()$]+";
