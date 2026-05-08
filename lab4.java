@@ -20,18 +20,10 @@ public class lab4 {
     static int cycles = 0;
     static int instructionsExecuted = 0;
 
-    static Instruction if_id = null;
-    static Instruction id_exe = null;
-    static Instruction exe_mem = null;
-    static Instruction mem_wb = null;
-
-    // while (input != q)
-    //      currInst = instructionArray.get(PC)
-    //      mem_wb = exe_mem
-    //      ...
-    //      if_id = currInst
-    //      execute(currInst)
-    //      PC++
+    static PipeReg if_id = PipeReg.empty();
+    static PipeReg id_exe = PipeReg.empty();
+    static PipeReg exe_mem = PipeReg.empty();
+    static PipeReg mem_wb = PipeReg.empty();
 
     public static void main(String[] args) {
         if (args.length < 1 || args.length > 2) {
@@ -77,7 +69,8 @@ public class lab4 {
 
                 // remove whitespace
                 line = line.trim();
-                if (line.isEmpty()) continue;
+                if (line.isEmpty())
+                    continue;
 
                 // we now have removed labels and comments from the line
                 instructionIdx += 1; // increment instruction counter
@@ -92,92 +85,79 @@ public class lab4 {
                     case "or":
                     case "slt":
                         instructionArray.add(
-                            new Rtype(
-                                name,
-                                Instruction.getOpcode(name),
-                                Register.getNumber(parsedLine[2]),
-                                Register.getNumber(parsedLine[3]),
-                                Register.getNumber(parsedLine[1]),
-                                0
-                            )
-                        );
+                                new Rtype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        Register.getNumber(parsedLine[2]),
+                                        Register.getNumber(parsedLine[3]),
+                                        Register.getNumber(parsedLine[1]),
+                                        0));
                         break;
                     // r-type with shamt != 0
                     case "sll":
                         instructionArray.add(
-                            new Rtype(
-                                name,
-                                Instruction.getOpcode(name),
-                                0,
-                                Register.getNumber(parsedLine[2]),
-                                Register.getNumber(parsedLine[1]),
-                                Integer.parseInt(parsedLine[3])
-                            )
-                        );
+                                new Rtype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        0,
+                                        Register.getNumber(parsedLine[2]),
+                                        Register.getNumber(parsedLine[1]),
+                                        Integer.parseInt(parsedLine[3])));
                         break;
                     // jump to addr stored in register
                     case "jr":
                         instructionArray.add(
-                            new Rtype(
-                                name,
-                                Instruction.getOpcode(name),
-                                Register.getNumber(parsedLine[1]),
-                                0,
-                                0,
-                                0
-                            )
-                        );
+                                new Rtype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        Register.getNumber(parsedLine[1]),
+                                        0,
+                                        0,
+                                        0));
                         break;
                     // i-types with 3 "arguments"
                     case "addi":
                         instructionArray.add(
-                            new Itype(
-                                name,
-                                Instruction.getOpcode(name),
-                                Register.getNumber(parsedLine[2]),
-                                Register.getNumber(parsedLine[1]),
-                                Integer.parseInt(parsedLine[3])
-                            )
-                        );
+                                new Itype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        Register.getNumber(parsedLine[2]),
+                                        Register.getNumber(parsedLine[1]),
+                                        Integer.parseInt(parsedLine[3])));
                         break;
                     case "beq":
                     case "bne":
                         instructionArray.add(
-                            new Itype(
-                                name,
-                                Instruction.getOpcode(name),
-                                Register.getNumber(parsedLine[1]),
-                                Register.getNumber(parsedLine[2]),
-                                parsedLine[3]
-                            )
-                        );
+                                new Itype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        Register.getNumber(parsedLine[1]),
+                                        Register.getNumber(parsedLine[2]),
+                                        parsedLine[3]));
                         break;
                     // i-type of form rt, imm(rs)
                     case "lw":
                     case "sw":
                         instructionArray.add(
-                            new Itype(
-                                name,
-                                Instruction.getOpcode(name),
-                                Register.getNumber(parsedLine[3]),
-                                Register.getNumber(parsedLine[1]),
-                                Integer.parseInt(parsedLine[2])
-                            )
-                        );
+                                new Itype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        Register.getNumber(parsedLine[3]),
+                                        Register.getNumber(parsedLine[1]),
+                                        Integer.parseInt(parsedLine[2])));
                         break;
                     // jump to label
                     case "j":
                     case "jal":
                         instructionArray.add(
-                            new Jtype(
-                                name,
-                                Instruction.getOpcode(name),
-                                parsedLine[1]
-                            )
-                        );
+                                new Jtype(
+                                        name,
+                                        Instruction.getOpcode(name),
+                                        parsedLine[1]));
                         break;
                     default:
-                        instructionArray.add(new Jtype(name, "invalid", -1) {});
+                        instructionArray.add(new Jtype(name, "invalid", -1) {
+                        });
                         break;
                 }
             }
@@ -197,15 +177,11 @@ public class lab4 {
             // beq and bne: 16-bit immediate = labelAddr - (curr instruction idx + 1)
             if (inst.getName().equals("beq") || inst.getName().equals("bne")) {
                 ((Itype) inst).setImmediate(
-                    labelAddr.get(((Itype) inst).getLabel()) - (i + 1)
-                );
+                        labelAddr.get(((Itype) inst).getLabel()) - (i + 1));
                 // j and jal: use the absolute address of the label
-            } else if (
-                inst.getName().equals("j") || inst.getName().equals("jal")
-            ) {
+            } else if (inst.getName().equals("j") || inst.getName().equals("jal")) {
                 ((Jtype) inst).setAddress(
-                    labelAddr.get(((Jtype) inst).getLabel())
-                );
+                        labelAddr.get(((Jtype) inst).getLabel()));
             }
         }
     }
@@ -215,7 +191,8 @@ public class lab4 {
         while (true) {
             System.out.print("mips> ");
             String input = usrInput.next();
-            if (input.charAt(0) == 'q') break;
+            if (input.charAt(0) == 'q')
+                break;
             executeCmd(input);
         }
 
@@ -230,7 +207,8 @@ public class lab4 {
             while (scanner.hasNextLine()) {
                 String cmd = scanner.nextLine();
                 System.out.println("mips> " + cmd);
-                if (cmd.equals("q")) System.exit(0);
+                if (cmd.equals("q"))
+                    System.exit(0);
                 executeCmd(cmd);
             }
         } catch (FileNotFoundException e) {
@@ -247,107 +225,97 @@ public class lab4 {
                 System.out.println("d = dump register state");
                 System.out.println("p = show pipeline registers");
                 System.out.println(
-                    "s = step through a single clock cycle step (i.e. simulate 1 cycle and stop)"
-                );
+                        "s = step through a single clock cycle step (i.e. simulate 1 cycle and stop)");
                 System.out.println("s num = step through num clock cycles");
                 System.out.println(
-                    "r = run until the program ends and display timing summary"
-                );
+                        "r = run until the program ends and display timing summary");
                 System.out.println(
-                    "m num1 num2 = display data memory from location num1 to num2"
-                );
+                        "m num1 num2 = display data memory from location num1 to num2");
                 System.out.println(
-                    "c = clear all registers, memory, and the program counter to 0"
-                );
+                        "c = clear all registers, memory, and the program counter to 0");
                 System.out.println("q = exit the program\n");
                 break;
             case 'd': // dump register state
                 System.out.println("\npc = " + PC);
                 System.out.printf(
-                    "%-16s%-16s%-16s%s%n",
-                    "$0 = " + registers[0],
-                    "$v0 = " + registers[2],
-                    "$v1 = " + registers[3],
-                    "$a0 = " + registers[4]
-                );
+                        "%-16s%-16s%-16s%s%n",
+                        "$0 = " + registers[0],
+                        "$v0 = " + registers[2],
+                        "$v1 = " + registers[3],
+                        "$a0 = " + registers[4]);
                 System.out.printf(
-                    "%-16s%-16s%-16s%s%n",
-                    "$a1 = " + registers[5],
-                    "$a2 = " + registers[6],
-                    "$a3 = " + registers[7],
-                    "$t0 = " + registers[8]
-                );
+                        "%-16s%-16s%-16s%s%n",
+                        "$a1 = " + registers[5],
+                        "$a2 = " + registers[6],
+                        "$a3 = " + registers[7],
+                        "$t0 = " + registers[8]);
                 System.out.printf(
-                    "%-16s%-16s%-16s%s%n",
-                    "$t1 = " + registers[9],
-                    "$t2 = " + registers[10],
-                    "$t3 = " + registers[11],
-                    "$t4 = " + registers[12]
-                );
+                        "%-16s%-16s%-16s%s%n",
+                        "$t1 = " + registers[9],
+                        "$t2 = " + registers[10],
+                        "$t3 = " + registers[11],
+                        "$t4 = " + registers[12]);
                 System.out.printf(
-                    "%-16s%-16s%-16s%s%n",
-                    "$t5 = " + registers[13],
-                    "$t6 = " + registers[14],
-                    "$t7 = " + registers[15],
-                    "$s0 = " + registers[16]
-                );
+                        "%-16s%-16s%-16s%s%n",
+                        "$t5 = " + registers[13],
+                        "$t6 = " + registers[14],
+                        "$t7 = " + registers[15],
+                        "$s0 = " + registers[16]);
                 System.out.printf(
-                    "%-16s%-16s%-16s%s%n",
-                    "$s1 = " + registers[17],
-                    "$s2 = " + registers[18],
-                    "$s3 = " + registers[19],
-                    "$s4 = " + registers[20]
-                );
+                        "%-16s%-16s%-16s%s%n",
+                        "$s1 = " + registers[17],
+                        "$s2 = " + registers[18],
+                        "$s3 = " + registers[19],
+                        "$s4 = " + registers[20]);
                 System.out.printf(
-                    "%-16s%-16s%-16s%s%n",
-                    "$s5 = " + registers[21],
-                    "$s6 = " + registers[22],
-                    "$s7 = " + registers[23],
-                    "$t8 = " + registers[24]
-                );
+                        "%-16s%-16s%-16s%s%n",
+                        "$s5 = " + registers[21],
+                        "$s6 = " + registers[22],
+                        "$s7 = " + registers[23],
+                        "$t8 = " + registers[24]);
                 System.out.printf(
-                    "%-16s%-16s%s%n%n",
-                    "$t9 = " + registers[25],
-                    "$sp = " + registers[29],
-                    "$ra = " + registers[31]
-                );
+                        "%-16s%-16s%s%n%n",
+                        "$t9 = " + registers[25],
+                        "$sp = " + registers[29],
+                        "$ra = " + registers[31]);
 
                 break;
+            case 'p': // show pipeline registers
+                System.out.println(
+                        "pc\tif/id\tid/exe\texe/mem\tmem/wb\n"
+                                + PC + "\t" + if_id + "\t" + id_exe + "\t" + exe_mem + "\t" + mem_wb);
             case 's':
-                // determine how many instructions to execute
-                int n =
-                    cmd.length() > 1
+                // determine how many clock cycles to execute
+                int n = cmd.length() > 1
                         ? Integer.parseInt(
-                              cmd.substring(cmd.indexOf('s') + 1).strip()
-                          )
+                                cmd.substring(cmd.indexOf('s') + 1).strip())
                         : 1;
-                // step through n number of instructions
+                // step through n number of clock cycles
                 for (int i = 0; i < n; i++) {
                     if (PC >= instructionArray.size()) {
                         break;
                     }
-                    executeInstruction();
+                    executeCycle();
                 }
                 System.out.println("        " + n + " instruction(s) executed");
                 break;
             case 'r': // run until the program ends
                 while (PC < instructionArray.size()) {
-                    executeInstruction();
+                    executeCycle();
                 }
-                // TODO: display timing summary: CPI, cycles, instructions (see example for format)
+                // TODO: display timing summary: CPI, cycles, instructions (see example for
+                // format)
                 break;
             case 'm': // m n1 n2 display dataMem from n1 to n2
                 String regex = "[,\\.\\s()$]+";
                 String[] parsedLine = cmd.split(regex);
                 int n1 = Integer.parseInt(parsedLine[1]);
                 int n2 = Integer.parseInt(parsedLine[2]);
-                if (
-                    n1 < 0 ||
-                    n1 > dataMem.length ||
-                    n2 < 0 ||
-                    n2 > dataMem.length ||
-                    n1 > n2
-                ) {
+                if (n1 < 0 ||
+                        n1 > dataMem.length ||
+                        n2 < 0 ||
+                        n2 > dataMem.length ||
+                        n1 > n2) {
                     System.out.println("Invalid memory range.");
                     break;
                 }
@@ -366,47 +334,62 @@ public class lab4 {
         }
     }
 
-    static void executeInstruction() {
+    static boolean loadAfterUse(Instruction if_id, Instruction currInst) {
+        if (if_id.getName().equals("lw") && currInst.getClass().equals(Rtype.class)
+                && ((Rtype) currInst).getRs() == ((Rtype) if_id).getRt()
+                && ((Rtype) if_id).getRd() != 0) {
+            return true;
+        }
+        return false;
+    }
+
+    static void executeCycle() {
         Instruction currInst = instructionArray.get(PC);
+
+        if (loadAfterUse(if_id.getInstruction(), currInst)) {
+
+        }
+        // Scoot the pipeline registers over
+        mem_wb = exe_mem;
+        exe_mem = id_exe;
+        id_exe = if_id;
+        if_id = PipeReg.instruction(currInst);
+    }
+
+    static void executeInstruction(Instruction currInst) {
 
         switch (currInst.getName()) {
             case "add": {
                 int rd = ((Rtype) currInst).getRd();
-                registers[rd] =
-                    registers[((Rtype) currInst).getRs()] +
-                    registers[((Rtype) currInst).getRt()];
+                registers[rd] = registers[((Rtype) currInst).getRs()] +
+                        registers[((Rtype) currInst).getRt()];
                 PC++;
                 break;
             }
             case "sub": {
                 int rd = ((Rtype) currInst).getRd();
-                registers[rd] =
-                    registers[((Rtype) currInst).getRs()] -
-                    registers[((Rtype) currInst).getRt()];
+                registers[rd] = registers[((Rtype) currInst).getRs()] -
+                        registers[((Rtype) currInst).getRt()];
                 PC++;
                 break;
             }
             case "and": {
                 int rd = ((Rtype) currInst).getRd();
-                registers[rd] =
-                    registers[((Rtype) currInst).getRs()] &
-                    registers[((Rtype) currInst).getRt()];
+                registers[rd] = registers[((Rtype) currInst).getRs()] &
+                        registers[((Rtype) currInst).getRt()];
                 PC++;
                 break;
             }
             case "or": {
                 int rd = ((Rtype) currInst).getRd();
-                registers[rd] =
-                    registers[((Rtype) currInst).getRs()] |
-                    registers[((Rtype) currInst).getRt()];
+                registers[rd] = registers[((Rtype) currInst).getRs()] |
+                        registers[((Rtype) currInst).getRt()];
                 PC++;
                 break;
             }
             case "slt": {
                 int rd = ((Rtype) currInst).getRd();
-                registers[rd] =
-                    registers[((Rtype) currInst).getRs()] <
-                    registers[((Rtype) currInst).getRt()]
+                registers[rd] = registers[((Rtype) currInst).getRs()] < registers[((Rtype) currInst).getRt()]
                         ? 1
                         : 0;
                 PC++;
@@ -414,9 +397,7 @@ public class lab4 {
             }
             case "sll": {
                 int rd = ((Rtype) currInst).getRd();
-                registers[rd] =
-                    registers[((Rtype) currInst).getRt()] <<
-                    ((Rtype) currInst).getShamt();
+                registers[rd] = registers[((Rtype) currInst).getRt()] << ((Rtype) currInst).getShamt();
                 PC++;
                 break;
             }
@@ -426,43 +407,34 @@ public class lab4 {
             }
             case "addi": {
                 int rt = ((Itype) currInst).getRt();
-                registers[rt] =
-                    registers[((Itype) currInst).getRs()] +
-                    ((Itype) currInst).getImmediate();
+                registers[rt] = registers[((Itype) currInst).getRs()] +
+                        ((Itype) currInst).getImmediate();
                 PC++;
                 break;
             }
             case "beq": {
-                PC =
-                    registers[((Itype) currInst).getRs()] ==
-                    registers[((Itype) currInst).getRt()]
+                PC = registers[((Itype) currInst).getRs()] == registers[((Itype) currInst).getRt()]
                         ? PC + 1 + ((Itype) currInst).getImmediate()
                         : PC + 1;
                 break;
             }
             case "bne": {
-                PC =
-                    registers[((Itype) currInst).getRs()] !=
-                    registers[((Itype) currInst).getRt()]
+                PC = registers[((Itype) currInst).getRs()] != registers[((Itype) currInst).getRt()]
                         ? PC + 1 + ((Itype) currInst).getImmediate()
                         : PC + 1;
                 break;
             }
             case "lw": {
                 // reg(rt) = mem(rs + imm)
-                registers[((Itype) currInst).getRt()] = dataMem[registers[((
-                        (Itype) currInst
-                    ).getRs())] +
-                ((Itype) currInst).getImmediate()];
+                registers[((Itype) currInst).getRt()] = dataMem[registers[(((Itype) currInst).getRs())] +
+                        ((Itype) currInst).getImmediate()];
                 PC++;
                 break;
             }
             case "sw": {
                 // mem(rs + imm) = reg(rt)
                 dataMem[registers[(((Itype) currInst).getRs())] +
-                ((Itype) currInst).getImmediate()] = registers[(
-                    (Itype) currInst
-                ).getRt()];
+                        ((Itype) currInst).getImmediate()] = registers[((Itype) currInst).getRt()];
                 PC++;
                 break;
             }
@@ -470,8 +442,7 @@ public class lab4 {
                 int dest = ((Jtype) currInst).getAddress();
                 if (dest >= instructionArray.size()) {
                     System.out.println(
-                        "Error: j instruction tried to access an invalid instruction index."
-                    );
+                            "Error: j instruction tried to access an invalid instruction index.");
                     System.exit(1);
                 }
                 PC = dest;
@@ -482,8 +453,7 @@ public class lab4 {
                 int dest = ((Jtype) currInst).getAddress();
                 if (dest >= instructionArray.size()) {
                     System.out.println(
-                        "Error: jal instruction tried to access an invalid instruction index."
-                    );
+                            "Error: jal instruction tried to access an invalid instruction index.");
                     System.exit(1);
                 }
                 PC = dest;
@@ -491,8 +461,7 @@ public class lab4 {
             }
             default: {
                 System.out.println(
-                    "Error: unsupported instruction " + currInst.getName()
-                );
+                        "Error: unsupported instruction " + currInst.getName());
                 System.exit(1);
             }
         }
