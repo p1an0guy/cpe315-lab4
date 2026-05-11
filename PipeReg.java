@@ -31,6 +31,10 @@ public class PipeReg {
         return this.instr;
     }
 
+    public boolean isEmpty() {
+        return this.type == Type.empty;
+    }
+
     public String toString() {
         switch (this.type) {
             case empty:

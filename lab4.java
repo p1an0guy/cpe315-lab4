@@ -25,6 +25,10 @@ public class lab4 {
     static PipeReg exe_mem = PipeReg.empty();
     static PipeReg mem_wb = PipeReg.empty();
 
+    static boolean pipelineFinished() {
+        return if_id.isEmpty() && id_exe.isEmpty() && exe_mem.isEmpty() && mem_wb.isEmpty();
+    }
+
     public static void main(String[] args) {
         if (args.length < 1 || args.length > 2) {
             System.out.println("Invalid number of arguments provided.");
@@ -190,7 +194,7 @@ public class lab4 {
         Scanner usrInput = new Scanner(System.in);
         while (true) {
             System.out.print("mips> ");
-            String input = usrInput.next();
+            String input = usrInput.nextLine();
             if (input.charAt(0) == 'q')
                 break;
             executeCmd(input);
@@ -284,6 +288,7 @@ public class lab4 {
                 System.out.println(
                         "pc\tif/id\tid/exe\texe/mem\tmem/wb\n"
                                 + PC + "\t" + if_id + "\t" + id_exe + "\t" + exe_mem + "\t" + mem_wb);
+                break;
             case 's':
                 // determine how many clock cycles to execute
                 int n = cmd.length() > 1
@@ -291,20 +296,26 @@ public class lab4 {
                                 cmd.substring(cmd.indexOf('s') + 1).strip())
                         : 1;
                 // step through n number of clock cycles
+                int executedInstructions = 0;
                 for (int i = 0; i < n; i++) {
-                    if (PC >= instructionArray.size()) {
+                    if (PC >= instructionArray.size() && pipelineFinished()) {
                         break;
                     }
                     executeCycle();
+                    executedInstructions++;
                 }
-                System.out.println("        " + n + " instruction(s) executed");
+                System.out.println("        " + executedInstructions + " cycle(s) executed");
                 break;
             case 'r': // run until the program ends
-                while (PC < instructionArray.size()) {
+                while (PC < instructionArray.size() || !pipelineFinished()) {
                     executeCycle();
                 }
-                // TODO: display timing summary: CPI, cycles, instructions (see example for
-                // format)
+                System.out.println("Program complete");
+                System.out.printf("CPI = %.2f\tCycles = %d\tInstructions = %d%n",
+                        (double) cycles / instructionsExecuted,
+                        cycles,
+                        instructionsExecuted);
+
                 break;
             case 'm': // m n1 n2 display dataMem from n1 to n2
                 String regex = "[,\\.\\s()$]+";
@@ -327,6 +338,12 @@ public class lab4 {
                 Arrays.fill(registers, 0);
                 Arrays.fill(dataMem, 0);
                 PC = 0;
+                cycles = 0;
+                instructionsExecuted = 0;
+                if_id = PipeReg.empty();
+                id_exe = PipeReg.empty();
+                exe_mem = PipeReg.empty();
+                mem_wb = PipeReg.empty();
                 System.out.println("        Simulator reset\n");
                 break;
             default:
@@ -335,20 +352,62 @@ public class lab4 {
     }
 
     static boolean loadAfterUse(Instruction if_id, Instruction currInst) {
-        if (if_id.getName().equals("lw") && currInst.getClass().equals(Rtype.class)
-                && ((Rtype) currInst).getRs() == ((Rtype) if_id).getRt()
-                && ((Rtype) if_id).getRd() != 0) {
-            return true;
+        if (if_id == null) {
+            return false;
+        }
+        if (!if_id.getName().equals("lw")) {
+            return false;
+        }
+        int previouslyUsedReg = ((Itype) if_id).getRt();
+        if (previouslyUsedReg == 0) {
+            return false; // can't write to zero register
+        }
+        if (currInst instanceof Rtype) {
+            Rtype r = (Rtype) currInst;
+
+            if (r.getName().equals("sll") && r.getRt() == previouslyUsedReg) {
+                return true;
+            }
+            if (r.getName().equals("jr") && r.getRs() == previouslyUsedReg) {
+                return true;
+            }
+            return r.getRs() == previouslyUsedReg || r.getRt() == previouslyUsedReg;
+        }
+
+        if (currInst instanceof Itype) {
+            Itype i = (Itype) currInst;
+            String name = currInst.getName();
+
+            if (name.equals("sw") || name.equals("beq") || name.equals("bne")) {
+                return i.getRs() == previouslyUsedReg || i.getRt() == previouslyUsedReg;
+            }
+
+            return i.getRs() == previouslyUsedReg;
         }
         return false;
     }
 
     static void executeCycle() {
+        if (PC >= instructionArray.size()) {
+            cycles++;
+            mem_wb = exe_mem;
+            exe_mem = id_exe;
+            id_exe = if_id;
+            if_id = PipeReg.empty();
+            return;
+        }
+        cycles++;
         Instruction currInst = instructionArray.get(PC);
 
         if (loadAfterUse(if_id.getInstruction(), currInst)) {
-
+            mem_wb = exe_mem;
+            exe_mem = id_exe;
+            id_exe = if_id;
+            if_id = PipeReg.stall();
+            return;
         }
+        executeInstruction(currInst);
+        instructionsExecuted++;
         // Scoot the pipeline registers over
         mem_wb = exe_mem;
         exe_mem = id_exe;
