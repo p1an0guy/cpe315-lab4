@@ -19,6 +19,7 @@ public class lab4 {
     static int PC = 0;
     static int cycles = 0;
     static int instructionsExecuted = 0;
+    static int squashCycles = 0;
 
     static PipeReg if_id = PipeReg.empty();
     static PipeReg id_exe = PipeReg.empty();
@@ -296,18 +297,21 @@ public class lab4 {
                                 cmd.substring(cmd.indexOf('s') + 1).strip())
                         : 1;
                 // step through n number of clock cycles
-                int executedInstructions = 0;
+                int executedCycles = 0;
                 for (int i = 0; i < n; i++) {
-                    if (PC >= instructionArray.size() && pipelineFinished()) {
+                    if (PC >= instructionArray.size() && pipelineFinished() && squashCycles == 0) {
                         break;
                     }
                     executeCycle();
-                    executedInstructions++;
+                    executedCycles++;
                 }
-                System.out.println("        " + executedInstructions + " cycle(s) executed");
+                System.out.println("        " + executedCycles + " cycle(s) executed");
+                System.out.println(
+                        "pc\tif/id\tid/exe\texe/mem\tmem/wb\n"
+                                + PC + "\t" + if_id + "\t" + id_exe + "\t" + exe_mem + "\t" + mem_wb);
                 break;
             case 'r': // run until the program ends
-                while (PC < instructionArray.size() || !pipelineFinished()) {
+                while (PC < instructionArray.size() || !pipelineFinished() || squashCycles > 0) {
                     executeCycle();
                 }
                 System.out.println("Program complete");
@@ -344,6 +348,7 @@ public class lab4 {
                 id_exe = PipeReg.empty();
                 exe_mem = PipeReg.empty();
                 mem_wb = PipeReg.empty();
+                squashCycles = 0;
                 System.out.println("        Simulator reset\n");
                 break;
             default:
@@ -388,6 +393,16 @@ public class lab4 {
     }
 
     static void executeCycle() {
+
+        if (squashCycles > 0) {
+            cycles++;
+            squashCycles--;
+            mem_wb = exe_mem;
+            exe_mem = id_exe;
+            id_exe = if_id;
+            if_id = PipeReg.squash();
+            return;
+        }
         if (PC >= instructionArray.size()) {
             cycles++;
             mem_wb = exe_mem;
@@ -406,8 +421,22 @@ public class lab4 {
             if_id = PipeReg.stall();
             return;
         }
+
+        // easiest way to keep track of branches taken: is the next PC == the current PC
+        // + 1?
+        int oldPC = PC; // oldPC
         executeInstruction(currInst);
         instructionsExecuted++;
+
+        if (PC != oldPC + 1) { // this means branch taken!
+            if (currInst.getName().equals("beq") || currInst.getName().equals("bne")) {
+                squashCycles = 3;
+            }
+        }
+        if (currInst.getName().equals("j") || currInst.getName().equals("jr")
+                || currInst.getName().equals("jal")) { // jumps have unconditional squash
+            squashCycles = 1;
+        }
         // Scoot the pipeline registers over
         mem_wb = exe_mem;
         exe_mem = id_exe;
