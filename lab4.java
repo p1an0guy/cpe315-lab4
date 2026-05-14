@@ -30,6 +30,11 @@ public class lab4 {
         return if_id.isEmpty() && id_exe.isEmpty() && exe_mem.isEmpty() && mem_wb.isEmpty();
     }
 
+    static void printPipeline() {
+        System.out.printf("%-8s%-8s%-8s%-8s%s%n", "pc", "if/id", "id/exe", "exe/mem", "mem/wb");
+        System.out.printf("%-8d%-8s%-8s%-8s%s%n", PC, if_id, id_exe, exe_mem, mem_wb);
+    }
+
     public static void main(String[] args) {
         if (args.length < 1 || args.length > 2) {
             System.out.println("Invalid number of arguments provided.");
@@ -286,29 +291,22 @@ public class lab4 {
 
                 break;
             case 'p': // show pipeline registers
-                System.out.println(
-                        "pc\tif/id\tid/exe\texe/mem\tmem/wb\n"
-                                + PC + "\t" + if_id + "\t" + id_exe + "\t" + exe_mem + "\t" + mem_wb);
+                printPipeline();
                 break;
             case 's':
                 // determine how many clock cycles to execute
                 int n = cmd.length() > 1
                         ? Integer.parseInt(
-                                cmd.substring(cmd.indexOf('s') + 1).strip())
+                                cmd.substring(cmd.indexOf('s') + 1).trim())
                         : 1;
                 // step through n number of clock cycles
-                int executedCycles = 0;
                 for (int i = 0; i < n; i++) {
                     if (PC >= instructionArray.size() && pipelineFinished() && squashCycles == 0) {
                         break;
                     }
                     executeCycle();
-                    executedCycles++;
                 }
-                System.out.println("        " + executedCycles + " cycle(s) executed");
-                System.out.println(
-                        "pc\tif/id\tid/exe\texe/mem\tmem/wb\n"
-                                + PC + "\t" + if_id + "\t" + id_exe + "\t" + exe_mem + "\t" + mem_wb);
+                printPipeline();
                 break;
             case 'r': // run until the program ends
                 while (PC < instructionArray.size() || !pipelineFinished() || squashCycles > 0) {
