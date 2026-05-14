@@ -32,8 +32,8 @@ public class lab4 {
     }
 
     static void printPipeline() {
-        System.out.printf("%-8s%-8s%-8s%-8s%s%n", "pc", "if/id", "id/exe", "exe/mem", "mem/wb");
-        System.out.printf("%-8d%-8s%-8s%-8s%s%n", PC, if_id, id_exe, exe_mem, mem_wb);
+        System.out.printf("\n%-8s%-8s%-8s%-8s%s%n", "pc", "if/id", "id/exe", "exe/mem", "mem/wb");
+        System.out.printf("%-8d%-8s%-8s%-8s%s%n\n", PC, if_id, id_exe, exe_mem, mem_wb);
     }
 
     public static void main(String[] args) {
@@ -313,8 +313,8 @@ public class lab4 {
                 while (PC < instructionArray.size() || !pipelineFinished() || squashCycles > 0) {
                     executeCycle();
                 }
-                System.out.println("Program complete");
-                System.out.printf("CPI = %.2f\tCycles = %d\tInstructions = %d%n",
+                System.out.println("\nProgram complete");
+                System.out.printf("CPI = %.3f\tCycles = %d\tInstructions = %d%n\n",
                         (double) cycles / instructionsExecuted,
                         cycles,
                         instructionsExecuted);
