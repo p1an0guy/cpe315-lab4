@@ -19,6 +19,7 @@ public class lab4 {
     static int PC = 0;
     static int cycles = 0;
     static int instructionsExecuted = 0;
+    static int stallCount = 0;
     static int squashCycles = 0;
 
     static PipeReg if_id = PipeReg.empty();
@@ -400,6 +401,13 @@ public class lab4 {
             id_exe = if_id;
             if_id = PipeReg.squash();
             return;
+        } else if (stallCount > 0) {
+            cycles++;
+            stallCount--;
+            mem_wb = exe_mem;
+            exe_mem = id_exe;
+            id_exe = PipeReg.stall();
+            return;
         }
         if (PC >= instructionArray.size()) {
             cycles++;
@@ -413,11 +421,7 @@ public class lab4 {
         Instruction currInst = instructionArray.get(PC);
 
         if (loadAfterUse(if_id.getInstruction(), currInst)) {
-            mem_wb = exe_mem;
-            exe_mem = id_exe;
-            id_exe = if_id;
-            if_id = PipeReg.stall();
-            return;
+            stallCount = 1;
         }
 
         // easiest way to keep track of branches taken: is the next PC == the current PC
