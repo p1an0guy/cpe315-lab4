@@ -17,10 +17,12 @@ public class lab4 {
     static int[] dataMem = new int[8192];
 
     static int PC = 0;
+    static int branchPC = -1;
     static int cycles = 0;
     static int instructionsExecuted = 0;
     static int stallCount = 0;
     static int squashCycles = 0;
+    static int branchDelay = 0;
 
     static PipeReg if_id = PipeReg.empty();
     static PipeReg id_exe = PipeReg.empty();
@@ -348,6 +350,8 @@ public class lab4 {
                 exe_mem = PipeReg.empty();
                 mem_wb = PipeReg.empty();
                 squashCycles = 0;
+                branchPC = -1;
+                branchDelay = 0;
                 System.out.println("        Simulator reset\n");
                 break;
             default:
@@ -392,15 +396,50 @@ public class lab4 {
     }
 
     static void executeCycle() {
+        // SPECIAL CONDITIONS
+        // if we took the branch, that finished during the fetch cycle in our simulator
+        // however, we want to fetch the next three instructions before squashing them
+        // so we'll fetch them normally but return before we can execute them
+        // that gets us the three next instructions in the pipeline without affecting
+        // our register results
+        if (branchDelay > 0) {
+            cycles++;
+            branchDelay--;
+            mem_wb = exe_mem;
+            exe_mem = id_exe;
+            id_exe = if_id;
+            if_id = PipeReg.instruction(instructionArray.get(PC));
+            PC++;
+            return;
+        }
 
+        // squashCycles is now only used by jumps
         if (squashCycles > 0) {
             cycles++;
             squashCycles--;
+            if (branchPC != -1) {
+                PC = branchPC;
+                branchPC = -1;
+            }
             mem_wb = exe_mem;
             exe_mem = id_exe;
             id_exe = if_id;
             if_id = PipeReg.squash();
             return;
+
+            // this case is only for branches
+            // we squash the three instructions
+        } else if (branchPC != -1) {
+            cycles++;
+            PC = branchPC;
+            branchPC = -1;
+            mem_wb = exe_mem;
+            exe_mem = PipeReg.squash();
+            id_exe = PipeReg.squash();
+            if_id = PipeReg.squash();
+            return;
+
+            // stalls for load-after-use conditions
         } else if (stallCount > 0) {
             cycles++;
             stallCount--;
@@ -409,6 +448,10 @@ public class lab4 {
             id_exe = PipeReg.stall();
             return;
         }
+
+        // if we've finished instructions
+        // run until the pipeline is completely empty
+        // AKA finish all in-progress instructions
         if (PC >= instructionArray.size()) {
             cycles++;
             mem_wb = exe_mem;
@@ -417,6 +460,8 @@ public class lab4 {
             if_id = PipeReg.empty();
             return;
         }
+
+        // NORMAL EXECUTION
         cycles++;
         Instruction currInst = instructionArray.get(PC);
 
@@ -424,15 +469,13 @@ public class lab4 {
             stallCount = 1;
         }
 
-        // easiest way to keep track of branches taken: is the next PC == the current PC
-        // + 1?
-        int oldPC = PC; // oldPC
+        int oldPC = PC;
         executeInstruction(currInst);
         instructionsExecuted++;
 
-        if (PC != oldPC + 1) { // this means branch taken!
+        if (PC != oldPC + 1 || branchPC != -1) { // if we jumped to some kind of target...
             if (currInst.getName().equals("beq") || currInst.getName().equals("bne")) {
-                squashCycles = 3;
+                branchDelay = 2;
             }
         }
         if (currInst.getName().equals("j") || currInst.getName().equals("jr")
@@ -492,7 +535,8 @@ public class lab4 {
                 break;
             }
             case "jr": {
-                PC = registers[((Rtype) currInst).getRs()];
+                branchPC = registers[((Rtype) currInst).getRs()];
+                PC++;
                 break;
             }
             case "addi": {
@@ -503,15 +547,17 @@ public class lab4 {
                 break;
             }
             case "beq": {
-                PC = registers[((Itype) currInst).getRs()] == registers[((Itype) currInst).getRt()]
+                branchPC = registers[((Itype) currInst).getRs()] == registers[((Itype) currInst).getRt()]
                         ? PC + 1 + ((Itype) currInst).getImmediate()
-                        : PC + 1;
+                        : -1;
+                PC++;
                 break;
             }
             case "bne": {
-                PC = registers[((Itype) currInst).getRs()] != registers[((Itype) currInst).getRt()]
+                branchPC = registers[((Itype) currInst).getRs()] != registers[((Itype) currInst).getRt()]
                         ? PC + 1 + ((Itype) currInst).getImmediate()
-                        : PC + 1;
+                        : -1;
+                PC++;
                 break;
             }
             case "lw": {
@@ -535,7 +581,8 @@ public class lab4 {
                             "Error: j instruction tried to access an invalid instruction index.");
                     System.exit(1);
                 }
-                PC = dest;
+                branchPC = dest;
+                PC++;
                 break;
             }
             case "jal": {
@@ -546,7 +593,8 @@ public class lab4 {
                             "Error: jal instruction tried to access an invalid instruction index.");
                     System.exit(1);
                 }
-                PC = dest;
+                branchPC = dest;
+                PC++;
                 break;
             }
             default: {
